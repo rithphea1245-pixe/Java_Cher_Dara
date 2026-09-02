@@ -72,6 +72,18 @@ public class QuizGameScreen extends JPanel {
     private JLabel completeText;
     private UITheme.Confetti confetti;
 
+    private javax.swing.Timer questionTimer;
+    private int timeLeft;
+    private static final int TIME_PER_QUESTION = 30;
+
+    private JLabel timerLabel;
+    private JButton fiftyFiftyButton;
+    private JButton addTimeButton;
+    private JButton skipButton;
+    private boolean usedFiftyFifty;
+    private boolean usedAddTime;
+    private boolean usedSkip;
+
     public QuizGameScreen(Dashboard dashboard) {
         super(new BorderLayout());
         this.dashboard = dashboard;
@@ -81,6 +93,15 @@ public class QuizGameScreen extends JPanel {
         this.content = new JPanel(cards);
         content.setOpaque(false);
         setOpaque(false);
+
+        questionTimer = new javax.swing.Timer(1000, e -> {
+            timeLeft--;
+            updateTimerDisplay();
+            if (timeLeft <= 0) {
+                questionTimer.stop();
+                handleTimeOut();
+            }
+        });
 
         content.add(buildWorldsPanel(), PANEL_WORLDS);
         content.add(buildLevelsPanel(), PANEL_LEVELS);
@@ -135,6 +156,10 @@ public class QuizGameScreen extends JPanel {
 
         worldsList = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 14));
         worldsList.setOpaque(false);
+        // Add skeleton placeholders initially
+        for (int i = 0; i < 4; i++) {
+            worldsList.add(UITheme.skeleton(280, 148, 16));
+        }
         panel.add(worldsList, BorderLayout.CENTER);
         return panel;
     }
@@ -164,6 +189,10 @@ public class QuizGameScreen extends JPanel {
 
         levelsList = new JPanel(new FlowLayout(FlowLayout.CENTER, 18, 14));
         levelsList.setOpaque(false);
+        // Add skeleton placeholders initially
+        for (int i = 0; i < 6; i++) {
+            levelsList.add(UITheme.skeleton(280, 115, 16));
+        }
         panel.add(levelsList, BorderLayout.CENTER);
         return panel;
     }
@@ -178,18 +207,45 @@ public class QuizGameScreen extends JPanel {
         quizLevelName = UITheme.sectionTitle("", UITheme.FONT_SECTION);
         quizLevelName.setAlignmentX(Component.CENTER_ALIGNMENT);
         header.add(quizLevelName);
-        progressLabel = new JLabel(" ", SwingConstants.CENTER);
+        
+        JPanel progressTimerPanel = new JPanel(new BorderLayout());
+        progressTimerPanel.setOpaque(false);
+        progressTimerPanel.setMaximumSize(new Dimension(640, 30));
+        progressTimerPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        progressLabel = new JLabel(" ", SwingConstants.LEFT);
         progressLabel.setFont(UITheme.bodyFont(Font.BOLD, UITheme.FONT_BODY));
         progressLabel.setForeground(UITheme.TEXT_MUTED);
-        progressLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        timerLabel = new JLabel("30s", SwingConstants.RIGHT);
+        timerLabel.setFont(UITheme.bodyFont(Font.BOLD, UITheme.FONT_BODY));
+        timerLabel.setForeground(UITheme.TEXT);
+
+        progressTimerPanel.add(progressLabel, BorderLayout.WEST);
+        progressTimerPanel.add(timerLabel, BorderLayout.EAST);
+
         header.add(Box.createVerticalStrut(4));
-        header.add(progressLabel);
+        header.add(progressTimerPanel);
         progressBar = new UITheme.ProgressBar();
         progressBar.setPreferredSize(new Dimension(640, 18));
         progressBar.setMaximumSize(new Dimension(640, 18));
         progressBar.setAlignmentX(Component.CENTER_ALIGNMENT);
         header.add(Box.createVerticalStrut(10));
         header.add(progressBar);
+
+        JPanel lifelinesRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        lifelinesRow.setOpaque(false);
+        fiftyFiftyButton = UITheme.ghostButton("50/50", UITheme.GOLD);
+        addTimeButton = UITheme.ghostButton("+15s", UITheme.TEAL);
+        skipButton = UITheme.ghostButton("Skip", UITheme.VIOLET);
+        fiftyFiftyButton.addActionListener(e -> useFiftyFifty());
+        addTimeButton.addActionListener(e -> useAddTime());
+        skipButton.addActionListener(e -> useSkip());
+        lifelinesRow.add(fiftyFiftyButton);
+        lifelinesRow.add(addTimeButton);
+        lifelinesRow.add(skipButton);
+        header.add(Box.createVerticalStrut(10));
+        header.add(lifelinesRow);
         panel.add(header, BorderLayout.NORTH);
 
         JPanel center = new JPanel();
@@ -405,8 +461,25 @@ public class QuizGameScreen extends JPanel {
         score = 0;
         points = 0;
         selectedAnswer = -1;
+        usedFiftyFifty = false;
+        usedAddTime = false;
+        usedSkip = false;
+        if (fiftyFiftyButton != null) fiftyFiftyButton.setEnabled(true);
+        if (addTimeButton != null) addTimeButton.setEnabled(true);
+        if (skipButton != null) skipButton.setEnabled(true);
+
         quizLevelName.setText(level.getName());
         cards.show(content, PANEL_QUIZ);
+        
+        // Show skeleton placeholders while loading
+        questionText.setText(" ");
+        optionsPanel.removeAll();
+        for (int i = 0; i < 4; i++) {
+            optionsPanel.add(UITheme.skeleton(380, 60, 12));
+        }
+        optionsPanel.revalidate();
+        optionsPanel.repaint();
+
         new SwingWorker<List<Question>, Void>() {
             @Override
             protected List<Question> doInBackground() {
@@ -459,6 +532,14 @@ public class QuizGameScreen extends JPanel {
             optionsPanel.add(btn);
         }
         selectedAnswer = -1;
+        timeLeft = TIME_PER_QUESTION;
+        updateTimerDisplay();
+        questionTimer.start();
+        
+        if (fiftyFiftyButton != null && !usedFiftyFifty) fiftyFiftyButton.setEnabled(true);
+        if (addTimeButton != null && !usedAddTime) addTimeButton.setEnabled(true);
+        if (skipButton != null && !usedSkip) skipButton.setEnabled(true);
+
         hintButton.setEnabled(true);
         hintLabel.setText(" ");
         hintLabel.setVisible(false);
@@ -493,6 +574,7 @@ public class QuizGameScreen extends JPanel {
             SoundUtil.playError();
             return;
         }
+        questionTimer.stop();
         Question question = questions.get(questionIndex);
         boolean correct = selectedAnswer == correctIndex(question);
         if (correct) {
@@ -521,6 +603,9 @@ public class QuizGameScreen extends JPanel {
         }
         hintButton.setEnabled(false);
         submitButton.setEnabled(false);
+        if (fiftyFiftyButton != null) fiftyFiftyButton.setEnabled(false);
+        if (addTimeButton != null) addTimeButton.setEnabled(false);
+        if (skipButton != null) skipButton.setEnabled(false);
         progressBar.setProgress((questionIndex + 1) / (double) questions.size());
 
         syncAnswerToBackend(question, correct);
@@ -583,12 +668,90 @@ public class QuizGameScreen extends JPanel {
     }
 
     private void showLevelComplete() {
+        questionTimer.stop();
         SoundUtil.playVictory();
         completeText.setText("You answered " + score + " of " + questions.size()
                 + " correctly and earned " + points + " points.");
         cards.show(content, PANEL_COMPLETE);
         confetti.launch();
         syncCompletionToBackend();
+    }
+
+    private void updateTimerDisplay() {
+        timerLabel.setText(timeLeft + "s");
+        if (timeLeft <= 5) {
+            timerLabel.setForeground(UITheme.ERROR);
+        } else {
+            timerLabel.setForeground(UITheme.TEXT);
+        }
+    }
+
+    private void handleTimeOut() {
+        feedbackLabel.setForeground(UITheme.ERROR);
+        feedbackLabel.setText("Time's up!");
+        SoundUtil.playError();
+        Question question = questions.get(questionIndex);
+        for (int i = 0; i < optionsPanel.getComponentCount(); i++) {
+            UITheme.OptionButton ob = (UITheme.OptionButton) optionsPanel.getComponent(i);
+            if (i == correctIndex(question)) {
+                ob.setCorrect();
+            } else {
+                ob.reset();
+            }
+        }
+        hintButton.setEnabled(false);
+        submitButton.setEnabled(false);
+        if (fiftyFiftyButton != null) fiftyFiftyButton.setEnabled(false);
+        if (addTimeButton != null) addTimeButton.setEnabled(false);
+        if (skipButton != null) skipButton.setEnabled(false);
+        progressBar.setProgress((questionIndex + 1) / (double) questions.size());
+
+        if (questionIndex == questions.size() - 1) {
+            nextButton.setText("View Results \u2192");
+        } else {
+            nextButton.setText("Next Question \u2192");
+        }
+        nextButton.setVisible(true);
+    }
+
+    private void useFiftyFifty() {
+        if (usedFiftyFifty) return;
+        usedFiftyFifty = true;
+        fiftyFiftyButton.setEnabled(false);
+        
+        Question question = questions.get(questionIndex);
+        int correct = correctIndex(question);
+        List<Integer> wrongIndices = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            if (i != correct && i < optionsPanel.getComponentCount()) wrongIndices.add(i);
+        }
+        Collections.shuffle(wrongIndices);
+        
+        if (wrongIndices.size() >= 2) {
+            optionsPanel.getComponent(wrongIndices.get(0)).setVisible(false);
+            optionsPanel.getComponent(wrongIndices.get(1)).setVisible(false);
+        }
+        SoundUtil.playClick();
+    }
+
+    private void useAddTime() {
+        if (usedAddTime) return;
+        usedAddTime = true;
+        addTimeButton.setEnabled(false);
+        timeLeft += 15;
+        updateTimerDisplay();
+        SoundUtil.playClick();
+    }
+
+    private void useSkip() {
+        if (usedSkip) return;
+        usedSkip = true;
+        skipButton.setEnabled(false);
+        questionTimer.stop();
+        points += POINTS_PER_QUESTION;
+        score++;
+        SoundUtil.playCorrect();
+        nextQuestion();
     }
 
     private void syncCompletionToBackend() {

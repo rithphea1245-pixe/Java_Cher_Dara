@@ -104,6 +104,11 @@ public class WordSearchGameScreen extends JPanel {
     private JLabel completeText;
     private UITheme.Confetti confetti;
     private Point hoverCell;
+    private Point hintCell;
+    private final JLabel timerLabel;
+    private javax.swing.Timer gameTimer;
+    private int elapsedSeconds;
+    private JButton hintButton;
 
     private Difficulty difficulty = Difficulty.MEDIUM;
     private int size;
@@ -129,11 +134,19 @@ public class WordSearchGameScreen extends JPanel {
         this.wordListPanel = new JPanel(new WrapLayout(FlowLayout.CENTER, 8, 8));
         this.wordListPanel.setOpaque(false);
         this.wordListPanel.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
-        this.progressLabel = UITheme.badge("", UITheme.VIOLET);
-        this.pointsLabel = UITheme.badge("", UITheme.GOLD);
+        this.progressLabel = UITheme.badge("", UITheme.WORDSEARCH_ACCENT[0]);
+        this.pointsLabel = UITheme.badge("", UITheme.WARNING);
+        this.timerLabel = UITheme.badge("00:00", UITheme.TEAL);
         this.feedbackLabel = new JLabel("", SwingConstants.CENTER);
-        this.difficultyLabel = UITheme.badge("", UITheme.TEAL);
+        this.difficultyLabel = UITheme.badge("", UITheme.CUPS_ACCENT[0]);
         this.gamePanel = buildGamePanel();
+
+        this.gameTimer = new javax.swing.Timer(1000, e -> {
+            elapsedSeconds++;
+            int m = elapsedSeconds / 60;
+            int s = elapsedSeconds % 60;
+            timerLabel.setText(String.format("%02d:%02d", m, s));
+        });
 
         this.viewCard = UITheme.card(new BorderLayout());
         viewCard.setBorder(BorderFactory.createEmptyBorder(UITheme.PAD_CARD_Y, UITheme.PAD_CARD_X, UITheme.PAD_CARD_Y, UITheme.PAD_CARD_X));
@@ -169,11 +182,11 @@ public class WordSearchGameScreen extends JPanel {
         buttons.setLayout(new javax.swing.BoxLayout(buttons, javax.swing.BoxLayout.Y_AXIS));
         buttons.setOpaque(false);
         buttons.setBorder(BorderFactory.createEmptyBorder(28, 0, 0, 0));
-        buttons.add(new DifficultyCard(Difficulty.EASY, "Smaller grid, fewer words", UITheme.GREEN, "\uD83C\uDF31"));
+        buttons.add(new DifficultyCard(Difficulty.EASY, "Smaller grid, fewer words", UITheme.SUCCESS, "\uD83C\uDF31"));
         buttons.add(Box.createVerticalStrut(16));
-        buttons.add(new DifficultyCard(Difficulty.MEDIUM, "More words and diagonal paths", UITheme.GOLD, "\u26A1"));
+        buttons.add(new DifficultyCard(Difficulty.MEDIUM, "More words and diagonal paths", UITheme.WARNING, "\u26A1"));
         buttons.add(Box.createVerticalStrut(16));
-        buttons.add(new DifficultyCard(Difficulty.HARD, "Large grid, all directions including backwards", UITheme.CORAL, "\uD83D\uDD25"));
+        buttons.add(new DifficultyCard(Difficulty.HARD, "Large grid, all directions including backwards", UITheme.DANGER, "\uD83D\uDD25"));
 
         JPanel wrap = UIUtil.centered(buttons);
         wrap.setOpaque(false);
@@ -189,10 +202,11 @@ public class WordSearchGameScreen extends JPanel {
         meta.setOpaque(false);
         difficultyLabel.setForeground(UITheme.TEXT);
         progressLabel.setForeground(UITheme.TEXT_MUTED);
-        pointsLabel.setForeground(UITheme.GOLD);
+        pointsLabel.setForeground(UITheme.WARNING);
         meta.add(difficultyLabel);
         meta.add(progressLabel);
         meta.add(pointsLabel);
+        meta.add(timerLabel);
         panel.add(meta, BorderLayout.NORTH);
 
         feedbackLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, UITheme.FONT_BODY));
@@ -234,7 +248,7 @@ public class WordSearchGameScreen extends JPanel {
         scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         right.add(scroll, BorderLayout.CENTER);
 
-        JPanel actions = new JPanel(new GridLayout(2, 1, 0, 12));
+        JPanel actions = new JPanel(new GridLayout(3, 1, 0, 12));
         actions.setOpaque(false);
         JButton newPuzzle = UITheme.primaryButton("New Puzzle");
         UIUtil.fixedSize(newPuzzle, 220, UITheme.BTN_H);
@@ -244,6 +258,10 @@ public class WordSearchGameScreen extends JPanel {
         UIUtil.fixedSize(changeDifficulty, 220, UITheme.BTN_H);
         changeDifficulty.addActionListener(e -> showDifficultyPanel());
         actions.add(changeDifficulty);
+        hintButton = UITheme.ghostButton("Reveal Hint", UITheme.GOLD);
+        UIUtil.fixedSize(hintButton, 220, UITheme.BTN_H);
+        hintButton.addActionListener(e -> useHint());
+        actions.add(hintButton);
 
         JPanel actionsWrap = UIUtil.centered(actions);
         actionsWrap.setOpaque(false);
@@ -276,7 +294,7 @@ public class WordSearchGameScreen extends JPanel {
         panel.setOpaque(false);
 
         UITheme.GradientTextLabel title =
-                new UITheme.GradientTextLabel("Puzzle Complete!", 34, UITheme.GOLD, UITheme.CORAL);
+                new UITheme.GradientTextLabel("Puzzle Complete!", 34, UITheme.WARNING, UITheme.DANGER);
         panel.add(title, BorderLayout.NORTH);
 
         completeText = new JLabel("", SwingConstants.CENTER);
@@ -324,8 +342,8 @@ public class WordSearchGameScreen extends JPanel {
     }
 
     private void showCompletePanel() {
+        gameTimer.stop();
         SoundUtil.playVictory();
-        completeText.setText("You found all " + words.size() + " words!");
         viewCard.removeAll();
         viewCard.add(completePanel, BorderLayout.CENTER);
         revalidate();
@@ -342,6 +360,10 @@ public class WordSearchGameScreen extends JPanel {
         selection.clear();
         points = 0;
         dragging = false;
+        elapsedSeconds = 0;
+        timerLabel.setText("00:00");
+        hintCell = null;
+        gameTimer.start();
 
         int chosenSize = randInt(diff.sizeMin, diff.sizeMax);
         char[][] result = null;
@@ -454,9 +476,9 @@ public class WordSearchGameScreen extends JPanel {
         for (PlacedWord w : words) {
             JLabel chip = UITheme.chipLabel(w.word);
             if (w.found) {
-                chip.setForeground(UITheme.GREEN);
+                chip.setForeground(UITheme.SUCCESS);
                 chip.setBorder(BorderFactory.createCompoundBorder(
-                        new UITheme.PillBorder(new Color(61, 220, 151, 170), 2),
+                        new UITheme.PillBorder(UITheme.SUCCESS, 2),
                         BorderFactory.createEmptyBorder(5, 14, 5, 14)));
                 Map<TextAttribute, Object> attrs = new HashMap<>(chip.getFont().getAttributes());
                 attrs.put(TextAttribute.STRIKETHROUGH, TextAttribute.STRIKETHROUGH_ON);
@@ -608,7 +630,7 @@ public class WordSearchGameScreen extends JPanel {
         points += earned;
         SoundUtil.playCorrect();
         feedbackLabel.setText("Found " + w.word + "! +" + earned + " points");
-        feedbackLabel.setForeground(UITheme.GREEN);
+        feedbackLabel.setForeground(UITheme.SUCCESS);
         renderWordList();
         updateMeta();
         board.invalidateCache();
@@ -622,15 +644,29 @@ public class WordSearchGameScreen extends JPanel {
         }
         if (allFound) {
             points += COMPLETION_BONUS;
-            completeText.setText("You found all " + words.size() + " words and earned "
-                    + points + " points.\n(Grid: " + size + "x" + size + ", " + difficulty.label + ")");
-            completeText.setForeground(UITheme.GOLD);
+            int m = elapsedSeconds / 60;
+            int s = elapsedSeconds % 60;
+            String timeStr = String.format("%02d:%02d", m, s);
+            completeText.setText("<html><center>You found all " + words.size() + " words in " + timeStr + "<br>and earned "
+                    + points + " points.<br><br><span style='font-size:12px;color:#8fa2bd;'>(Grid: " + size + "x" + size + ", " + difficulty.label + ")</span></center></html>");
+            completeText.setForeground(UITheme.WARNING);
             SwingUtilities.invokeLater(this::showCompletePanel);
             syncCompletionToBackend();
         }
     }
 
     /* ================= Helpers ================= */
+    
+    private void useHint() {
+        for (PlacedWord w : words) {
+            if (!w.found) {
+                hintCell = w.cells.get(0);
+                board.repaint();
+                SoundUtil.playHint();
+                return;
+            }
+        }
+    }
 
     private void syncCompletionToBackend() {
         int userId = dashboard.getUserId();
@@ -970,6 +1006,10 @@ public class WordSearchGameScreen extends JPanel {
                     fillCell(g2, selection.get(i), cell, pad, x0, y0);
                 }
             }
+            if (hintCell != null && !isFoundCell(hintCell) && !selection.contains(hintCell)) {
+                g2.setColor(new Color(255, 201, 60, 150));
+                fillCell(g2, hintCell, cell, pad, x0, y0);
+            }
             if (hoverCell != null && !selection.contains(hoverCell) && !isFoundCell(hoverCell)) {
                 g2.setColor(HOVER_BG);
                 fillCell(g2, hoverCell, cell, pad, x0, y0);
@@ -1002,7 +1042,7 @@ public class WordSearchGameScreen extends JPanel {
                     boolean found = isFoundCell(r, c);
                     g2.setColor(found ? new Color(61, 220, 151, 70) : CELL_BG);
                     g2.fill(new RoundRectangle2D.Float(x + 1, y + 1, cell - 2, cell - 2, 9, 9));
-                    g2.setColor(found ? UITheme.GREEN : CELL_BORDER);
+                    g2.setColor(found ? UITheme.SUCCESS : CELL_BORDER);
                     g2.setStroke(new java.awt.BasicStroke(1.2f));
                     g2.draw(new RoundRectangle2D.Float(x + 1, y + 1, cell - 2, cell - 2, 9, 9));
 

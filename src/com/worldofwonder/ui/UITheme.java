@@ -5,11 +5,15 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
+import javax.swing.JWindow;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 import java.awt.CardLayout;
@@ -19,8 +23,8 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.Dimension;
 import java.awt.Cursor;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GradientPaint;
@@ -32,16 +36,19 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.LayoutManager;
 import java.awt.LinearGradientPaint;
+import java.awt.Point;
 import java.awt.RadialGradientPaint;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.Shape;
+import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.FocusAdapter;
 import java.awt.event.MouseAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
 import java.awt.image.BufferedImage;
 import java.awt.geom.Point2D;
 import java.awt.geom.RoundRectangle2D;
@@ -80,6 +87,51 @@ public final class UITheme {
     public static final Color DISABLED_FILL = new Color(255, 255, 255, 22);
     public static final Color FIELD_BG = new Color(255, 255, 255, 23);
     public static final Color FIELD_BORDER = new Color(255, 255, 255, 41);
+
+    // ── Semantic color tokens ───────────────────────────────────────────
+    public static final Color SUCCESS = new Color(0x10b981);
+    public static final Color WARNING = new Color(0xf59e0b);
+    public static final Color INFO = new Color(0x3b82f6);
+    public static final Color DANGER = new Color(0xef4444);
+
+    // Brand gradient stops
+    public static final Color BRAND_50 = new Color(0xeef8ff);
+    public static final Color BRAND_100 = new Color(0xd6efff);
+    public static final Color BRAND_200 = new Color(0xb3dfff);
+    public static final Color BRAND_300 = new Color(0x7ac7ff);
+    public static final Color BRAND_400 = new Color(0x3aa6ff);
+    public static final Color BRAND_500 = TEAL;
+    public static final Color BRAND_600 = new Color(0x006ccc);
+    public static final Color BRAND_700 = new Color(0x0052a3);
+    public static final Color BRAND_800 = new Color(0x003d7a);
+    public static final Color BRAND_900 = new Color(0x002d5e);
+
+    // Per-game accent palettes (5-stop each)
+    public static final Color[] QUIZ_ACCENT = {
+            BRAND_500, new Color(0x7e22ce), new Color(0x6366f1), new Color(0x8b5cf6), new Color(0xa855f7)
+    };
+    public static final Color[] WORDSEARCH_ACCENT = {
+            new Color(0xe86500), new Color(0xf59e0b), new Color(0xfbbf24), new Color(0xfcd34d), new Color(0xfef08a)
+    };
+    public static final Color[] CUPS_ACCENT = {
+            new Color(0x10a37f), new Color(0x14b886), new Color(0x34d399), new Color(0x6ee7b7), new Color(0xa7f3d0)
+    };
+    public static final Color[] WORDS_ACCENT = {
+            new Color(0xa855f7), new Color(0xc084fc), new Color(0xd8b4fe), new Color(0xe9d5ff), new Color(0xf3e8ff)
+    };
+
+    // Neutral scale for text, borders, surfaces
+    public static final Color NEUTRAL_50 = new Color(0xf8fafc);
+    public static final Color NEUTRAL_100 = new Color(0xf1f5f9);
+    public static final Color NEUTRAL_200 = new Color(0xe2e8f0);
+    public static final Color NEUTRAL_300 = new Color(0xcbd5e1);
+    public static final Color NEUTRAL_400 = new Color(0x94a3b8);
+    public static final Color NEUTRAL_500 = new Color(0x64748b);
+    public static final Color NEUTRAL_600 = new Color(0x475569);
+    public static final Color NEUTRAL_700 = new Color(0x334155);
+    public static final Color NEUTRAL_800 = new Color(0x1e293b);
+    public static final Color NEUTRAL_900 = new Color(0x0f172a);
+    public static final Color NEUTRAL_950 = new Color(0x020617);
 
     /** Radius for the large outer cards (36-40px). */
     public static final int CARD_RADIUS = 40;
@@ -457,6 +509,35 @@ public final class UITheme {
         RoundedButton button = (RoundedButton) accentButton(text, color);
         button.glass = true;
         return button;
+    }
+
+    public static JButton iconButton(String icon, String text, java.awt.event.ActionListener listener) {
+        JButton btn = new RoundedButton(icon + " " + text, PANEL_BG, PANEL_BG_HOVER, TEXT, false);
+        btn.setFont(bodyFont(Font.BOLD, FONT_BUTTON));
+        if (listener != null) btn.addActionListener(listener);
+        return btn;
+    }
+
+    public static JPanel glassCard() {
+        return glassCard(new BorderLayout());
+    }
+
+    public static JPanel glassCard(LayoutManager layout) {
+        JPanel panel = new JPanel(layout) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = quality((Graphics2D) g.create());
+                int w = getWidth(), h = getHeight();
+                g2.setColor(new Color(255, 255, 255, 20));
+                g2.fillRoundRect(0, 0, w, h, 24, 24);
+                g2.setColor(new Color(255, 255, 255, 40));
+                g2.setStroke(new BasicStroke(1.5f));
+                g2.drawRoundRect(1, 1, w - 2, h - 2, 24, 24);
+                g2.dispose();
+            }
+        };
+        panel.setOpaque(false);
+        return panel;
     }
 
     public static <T extends JTextField> T styleField(T field) {
@@ -3449,6 +3530,228 @@ public final class UITheme {
             int x = (w - fm.stringWidth(s)) / 2;
             int y = ((h - 3) - fm.getHeight()) / 2 + fm.getAscent() + 1;
             g2.drawString(s, x, y);
+            g2.dispose();
+        }
+    }
+
+    /* ==================== New components: Toast, Modal, Skeleton ==================== */
+
+    public enum ToastType {
+        SUCCESS(new Color(0x10b981)),
+        WARNING(new Color(0xf59e0b)),
+        ERROR(new Color(0xef4444)),
+        INFO(new Color(0x3b82f6));
+
+        public final Color color;
+        ToastType(Color color) { this.color = color; }
+    }
+
+    public static void toast(JFrame parent, String message, ToastType type) {
+        JPanel toast = new ToastPanel(message, type);
+        JWindow window = new JWindow(parent);
+        window.setContentPane(toast);
+        window.setOpacity(0f);
+        window.setSize(toast.getPreferredSize());
+        Point p = parent.getLocationOnScreen();
+        int x = p.x + (parent.getWidth() - toast.getPreferredSize().width) / 2;
+        int y = p.y + parent.getHeight() - toast.getPreferredSize().height - 40;
+        window.setLocation(x, y);
+        window.setVisible(true);
+
+        float[] opacity = {0f};
+        javax.swing.Timer fadeIn = new javax.swing.Timer(16, e -> {
+            opacity[0] += (1f - opacity[0]) * 0.15f;
+            window.setOpacity(opacity[0]);
+            if (opacity[0] > 0.99f) {
+                opacity[0] = 1f;
+                window.setOpacity(1f);
+                ((javax.swing.Timer) e.getSource()).stop();
+            }
+        });
+        fadeIn.setRepeats(true);
+        fadeIn.start();
+
+        javax.swing.Timer dismiss = new javax.swing.Timer(3000, e -> {
+            javax.swing.Timer fadeOut = new javax.swing.Timer(16, ev -> {
+                opacity[0] -= opacity[0] * 0.15f;
+                window.setOpacity(opacity[0]);
+                if (opacity[0] < 0.01f) {
+                    opacity[0] = 0f;
+                    window.dispose();
+                    ((javax.swing.Timer) ev.getSource()).stop();
+                }
+            });
+            fadeOut.setRepeats(true);
+            fadeOut.start();
+        });
+        dismiss.setRepeats(false);
+        dismiss.start();
+    }
+
+    private static class ToastPanel extends JPanel {
+        ToastPanel(String message, ToastType type) {
+            setOpaque(false);
+            setLayout(new BorderLayout(12, 0));
+            setBorder(BorderFactory.createEmptyBorder(14, 20, 14, 20));
+
+            JLabel icon = new JLabel(iconFor(type), SwingConstants.CENTER);
+            icon.setFont(emojiFont(20));
+            icon.setForeground(type.color);
+            add(icon, BorderLayout.WEST);
+
+            JLabel text = new JLabel(message, SwingConstants.LEFT);
+            text.setFont(bodyFont(Font.PLAIN, FONT_BODY));
+            text.setForeground(TEXT);
+            add(text, BorderLayout.CENTER);
+
+            JLabel close = new JLabel("\u2715", SwingConstants.CENTER);
+            close.setFont(bodyFont(Font.BOLD, FONT_BODY));
+            close.setForeground(TEXT_MUTED);
+            close.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            close.addMouseListener(new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) {
+                    Window w = SwingUtilities.getWindowAncestor(ToastPanel.this);
+                    if (w != null) w.dispose();
+                }
+                @Override public void mouseEntered(MouseEvent e) { close.setForeground(TEXT); }
+                @Override public void mouseExited(MouseEvent e) { close.setForeground(TEXT_MUTED); }
+            });
+            add(close, BorderLayout.EAST);
+        }
+
+        private String iconFor(ToastType type) {
+            return switch (type) {
+                case SUCCESS -> "\u2705";
+                case WARNING -> "\u26A0\uFE0F";
+                case ERROR -> "\u274C";
+                case INFO -> "\u2139\uFE0F";
+            };
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            quality(g2);
+            int w = getWidth(), h = getHeight();
+            int r = capsule(h);
+            g2.setColor(new Color(14, 26, 42, 240));
+            g2.fillRoundRect(0, 0, w, h, r, r);
+            g2.setColor(new Color(255, 255, 255, 30));
+            g2.setStroke(new BasicStroke(1f));
+            g2.drawRoundRect(1, 1, w - 3, h - 3, r, r);
+            g2.dispose();
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(360, 56);
+        }
+    }
+
+    public static JDialog modal(JFrame parent, String title, JComponent content, Runnable onClose) {
+        JDialog dialog = new JDialog(parent, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setUndecorated(true);
+
+        JPanel root = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                quality(g2);
+                int w = getWidth(), h = getHeight();
+                int r = 24;
+                g2.setColor(new Color(9, 20, 34, 250));
+                g2.fillRoundRect(0, 0, w, h, r, r);
+                g2.setColor(new Color(255, 255, 255, 30));
+                g2.setStroke(new BasicStroke(1.5f));
+                g2.drawRoundRect(1, 1, w - 3, h - 3, r, r);
+                g2.dispose();
+            }
+        };
+        root.setOpaque(false);
+        root.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(displayFont(Font.BOLD, FONT_SECTION));
+        titleLabel.setForeground(TEXT);
+        header.add(titleLabel, BorderLayout.WEST);
+        JButton closeBtn = new JButton("\u2715");
+        closeBtn.setFont(displayFont(Font.BOLD, 18));
+        closeBtn.setForeground(TEXT_MUTED);
+        closeBtn.setContentAreaFilled(false);
+        closeBtn.setBorder(BorderFactory.createEmptyBorder(4, 10, 4, 10));
+        closeBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        closeBtn.addMouseListener(new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) { closeBtn.setForeground(TEXT); }
+            @Override public void mouseExited(MouseEvent e) { closeBtn.setForeground(TEXT_MUTED); }
+            @Override public void mouseClicked(MouseEvent e) { dialog.dispose(); }
+        });
+        header.add(closeBtn, BorderLayout.EAST);
+        root.add(header, BorderLayout.NORTH);
+
+        content.setOpaque(false);
+        root.add(content, BorderLayout.CENTER);
+
+        dialog.setContentPane(root);
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        dialog.addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override public void windowClosed(java.awt.event.WindowEvent e) {
+                if (onClose != null) onClose.run();
+            }
+        });
+        dialog.setVisible(true);
+        return dialog;
+    }
+
+    public static JComponent skeleton(int width, int height) {
+        return new Skeleton(width, height);
+    }
+
+    public static JComponent skeleton(int width, int height, int radius) {
+        return new Skeleton(width, height, radius);
+    }
+
+    private static class Skeleton extends JComponent {
+        private final int w, h, r;
+        private final Anim shimmer = new Anim(() -> repaint());
+        private float phase = 0f;
+
+        Skeleton(int width, int height) {
+            this(width, height, 12);
+        }
+
+        Skeleton(int width, int height, int radius) {
+            this.w = width;
+            this.h = height;
+            this.r = radius;
+            setPreferredSize(new Dimension(width, height));
+            setMaximumSize(new Dimension(width, height));
+            setMinimumSize(new Dimension(width, height));
+            shimmer.setTarget(1f, 0.02f);
+            new javax.swing.Timer(16, e -> {
+                phase += 0.02f;
+                if (phase > 1f) phase = 0f;
+                repaint();
+            }).start();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            quality(g2);
+            float p = shimmer.value();
+            int wave = (int) ((phase - p) * w * 1.5f);
+            g2.setColor(new Color(255, 255, 255, 18));
+            g2.fillRoundRect(0, 0, w, h, r, r);
+            g2.setPaint(new LinearGradientPaint(wave, 0, wave + w / 2f, 0,
+                    new float[]{0f, 0.5f, 1f},
+                    new Color[]{new Color(255, 255, 255, 0),
+                            new Color(255, 255, 255, 40),
+                            new Color(255, 255, 255, 0)}));
+            g2.fillRoundRect(0, 0, w, h, r, r);
             g2.dispose();
         }
     }

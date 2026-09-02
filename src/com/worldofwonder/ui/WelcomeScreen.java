@@ -5,9 +5,8 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
@@ -15,10 +14,11 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagLayout;
 
 public class WelcomeScreen extends JPanel {
@@ -54,7 +54,7 @@ public class WelcomeScreen extends JPanel {
         loginUser.setFont(fieldFont());
         loginPass.setFont(fieldFont());
         loginStatus = statusLabel();
-        loginButton = UITheme.glowButton("Start Exploring", UITheme.TEAL, UITheme.VIOLET);
+        loginButton = UITheme.glowButton("Start Exploring", UITheme.BRAND_500, UITheme.BRAND_600);
         loginButton.setFont(buttonFont());
 
         regUser = UITheme.pillField("Username", "\uD83D\uDC64");
@@ -64,7 +64,7 @@ public class WelcomeScreen extends JPanel {
         regEmail.setFont(fieldFont());
         regPass.setFont(fieldFont());
         regStatus = statusLabel();
-        registerButton = UITheme.glowButton("Create Account", UITheme.VIOLET, UITheme.PINK);
+        registerButton = UITheme.glowButton("Create Account", UITheme.WORDS_ACCENT[0], UITheme.WORDS_ACCENT[1]);
         registerButton.setFont(buttonFont());
 
         tabs = (UITheme.SegmentTabs) UITheme.segmentTabs(
@@ -86,19 +86,48 @@ public class WelcomeScreen extends JPanel {
         UIUtil.flexSize(card, 660, 880, 360, 900);
         card.add(buildContent(), BorderLayout.CENTER);
 
-        JPanel root = UITheme.screenPage(card);
+        JPanel root = UITheme.animatedRoot(card);
         UITheme.autoScale(root, 720, 940, 0.82, 1.4);
         add(root, BorderLayout.CENTER);
     }
 
     private JPanel buildContent() {
-        JPanel content = new JPanel();
+        // Simple fade-in entrance animation panel
+        JPanel content = new JPanel() {
+            private final UITheme.Anim anim = new UITheme.Anim(() -> repaint());
+            private boolean started;
+
+            @Override
+            public void addNotify() {
+                super.addNotify();
+                if (!started) {
+                    started = true;
+                    anim.setTarget(0f);
+                    anim.setTarget(1f, 0.08f);
+                }
+            }
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                if (anim.running()) {
+                    float v = anim.value();
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    UITheme.paintQuality(g2);
+                    g2.setComposite(java.awt.AlphaComposite.SrcOver.derive(v));
+                    g2.translate(0, (int) ((1f - v) * 20f));
+                    super.paintComponent(g2);
+                    g2.dispose();
+                } else {
+                    super.paintComponent(g);
+                }
+            }
+        };
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
         content.add(Box.createVerticalGlue());
 
-        JLabel badge = UITheme.badge("\u2728 GLOBAL ADVENTURE \u2728", UITheme.GOLD);
+        JLabel badge = UITheme.badge("\u2728 GLOBAL ADVENTURE \u2728", UITheme.WARNING);
         badge.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(badge);
         content.add(Box.createVerticalStrut(16));
@@ -110,7 +139,7 @@ public class WelcomeScreen extends JPanel {
 
         JLabel tagline = new UITheme.GradientTextLabel(
                 "Travel the world. Answer the questions. Earn the stars.",
-                UITheme.FONT_BODY, new Color(0x9fe7ff), new Color(0xffc93c));
+                UITheme.FONT_BODY, UITheme.BRAND_400, UITheme.WARNING);
         tagline.setFont(UITheme.displayFont(Font.BOLD, UITheme.FONT_BODY));
         tagline.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(tagline);
@@ -132,7 +161,7 @@ public class WelcomeScreen extends JPanel {
         content.add(UITheme.divider("or", UITheme.FONT_SMALL));
         content.add(Box.createVerticalStrut(UITheme.GAP_ELEMENT));
 
-        JButton guest = UITheme.ghostButton("Play as Guest", UITheme.VIOLET);
+        JButton guest = UITheme.ghostButton("Play as Guest", UITheme.INFO);
         guest.setFont(buttonFont());
         UIUtil.fullWidth(guest, UITheme.BTN_H);
         guest.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -244,14 +273,7 @@ public class WelcomeScreen extends JPanel {
     }
 
     private void showPasswordHelp() {
-        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this),
-                "Password Reset", java.awt.Dialog.ModalityType.APPLICATION_MODAL);
-        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-
-        JPanel bg = UITheme.gradientPanel(new GridBagLayout());
-        JPanel card = UITheme.glowCard(new BorderLayout());
-        card.setBorder(BorderFactory.createEmptyBorder(28, 34, 26, 34));
-        UIUtil.fixedSize(card, 480, 330);
+        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
 
         JPanel inner = new JPanel();
         inner.setOpaque(false);
@@ -279,19 +301,13 @@ public class WelcomeScreen extends JPanel {
         inner.add(body);
         inner.add(Box.createVerticalStrut(UITheme.GAP_SECTION));
 
-        JButton ok = UITheme.glowButton("Got it", UITheme.TEAL, UITheme.VIOLET);
+        JButton ok = UITheme.glowButton("Got it", UITheme.BRAND_500, UITheme.BRAND_600);
         ok.setFont(buttonFont());
         UIUtil.fullWidth(ok, UITheme.BTN_H);
         ok.setAlignmentX(Component.CENTER_ALIGNMENT);
-        ok.addActionListener(e -> dialog.dispose());
         inner.add(ok);
 
-        card.add(inner, BorderLayout.CENTER);
-        bg.add(card);
-        dialog.setContentPane(bg);
-        dialog.setSize(480, 340);
-        dialog.setLocationRelativeTo(SwingUtilities.getWindowAncestor(this));
-        dialog.setVisible(true);
+        UITheme.modal(frame, "Password Reset", inner, null);
     }
 
     private JComponent field(JTextField field) {
@@ -304,7 +320,7 @@ public class WelcomeScreen extends JPanel {
     private JLabel statusLabel() {
         JLabel label = new JLabel(" ", SwingConstants.CENTER);
         label.setFont(UITheme.bodyFont(Font.PLAIN, UITheme.FONT_BODY));
-        label.setForeground(UITheme.ERROR);
+        label.setForeground(UITheme.DANGER);
         return label;
     }
 
@@ -321,13 +337,15 @@ public class WelcomeScreen extends JPanel {
         String password = new String(loginPass.getPassword());
         if (username.isEmpty() || password.isEmpty()) {
             loginStatus.setText("Enter your username and password.");
-            JOptionPane.showMessageDialog(this, "Please enter both username and password.", "Login", JOptionPane.WARNING_MESSAGE);
+            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+            UITheme.toast(frame, "Please enter both username and password.", UITheme.ToastType.WARNING);
             return;
         }
 
         // Hardcoded admin login bypass check: Username "admin" and password "hengheng168"
         if ("admin".equalsIgnoreCase(username) && "hengheng168".equals(password)) {
-            JOptionPane.showMessageDialog(this, "Login successful! Welcome Admin!", "Welcome", JOptionPane.INFORMATION_MESSAGE);
+            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+            UITheme.toast(frame, "Login successful! Welcome Admin!", UITheme.ToastType.SUCCESS);
             enterDashboard("admin", false, 1, "admin-bypass-token", 100);
             return;
         }
@@ -345,27 +363,29 @@ public class WelcomeScreen extends JPanel {
                     AuthApiClient.Result result = get();
                     if (result.success) {
                         String user = result.username == null ? username : result.username;
-                        JOptionPane.showMessageDialog(WelcomeScreen.this,
-                                "Login successful! Welcome back, " + user + "!",
-                                "Login Successful", JOptionPane.INFORMATION_MESSAGE);
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                        UITheme.toast(frame, "Login successful! Welcome back, " + user + "!", UITheme.ToastType.SUCCESS);
                         enterDashboard(user, false,
                                 result.userId, result.token, result.totalPoints);
                     } else {
                         String msg = result.message == null ? "Login failed." : result.message;
                         loginStatus.setText(msg);
                         loginButton.setEnabled(true);
-                        JOptionPane.showMessageDialog(WelcomeScreen.this, msg, "Login Failed", JOptionPane.ERROR_MESSAGE);
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                        UITheme.toast(frame, msg, UITheme.ToastType.ERROR);
                     }
                 } catch (Exception e) {
                     if ("admin".equalsIgnoreCase(username) && "hengheng168".equals(password)) {
-                        JOptionPane.showMessageDialog(WelcomeScreen.this, "Login successful! Welcome Admin!", "Welcome", JOptionPane.INFORMATION_MESSAGE);
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                        UITheme.toast(frame, "Login successful! Welcome Admin!", UITheme.ToastType.SUCCESS);
                         enterDashboard("admin", false, 1, "admin-bypass-token", 100);
                         return;
                     }
                     String msg = "Cannot reach the server. Continue as guest or try again.";
                     loginStatus.setText(msg);
                     loginButton.setEnabled(true);
-                    JOptionPane.showMessageDialog(WelcomeScreen.this, msg, "Connection Error", JOptionPane.ERROR_MESSAGE);
+                    JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                    UITheme.toast(frame, msg, UITheme.ToastType.ERROR);
                 }
             }
         }.execute();
@@ -377,7 +397,8 @@ public class WelcomeScreen extends JPanel {
         String password = new String(regPass.getPassword());
         if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
             regStatus.setText("All fields are required.");
-            JOptionPane.showMessageDialog(this, "All fields (username, email, and password) are required.", "Registration", JOptionPane.WARNING_MESSAGE);
+            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+            UITheme.toast(frame, "All fields (username, email, and password) are required.", UITheme.ToastType.WARNING);
             return;
         }
         setBusy(registerButton, regStatus, "Creating account...");
@@ -393,22 +414,23 @@ public class WelcomeScreen extends JPanel {
                     AuthApiClient.Result result = get();
                     if (result.success) {
                         String user = result.username == null ? username : result.username;
-                        JOptionPane.showMessageDialog(WelcomeScreen.this,
-                                "Account created successfully! Welcome, " + user + "!",
-                                "Registration Successful", JOptionPane.INFORMATION_MESSAGE);
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                        UITheme.toast(frame, "Account created successfully! Welcome, " + user + "!", UITheme.ToastType.SUCCESS);
                         enterDashboard(user, false,
                                 result.userId, result.token, result.totalPoints);
                     } else {
                         String msg = result.message == null ? "Registration failed." : result.message;
                         regStatus.setText(msg);
                         registerButton.setEnabled(true);
-                        JOptionPane.showMessageDialog(WelcomeScreen.this, msg, "Registration Failed", JOptionPane.ERROR_MESSAGE);
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                        UITheme.toast(frame, msg, UITheme.ToastType.ERROR);
                     }
                 } catch (Exception e) {
                     String msg = "Cannot reach the server. Continue as guest or try again.";
                     regStatus.setText(msg);
                     registerButton.setEnabled(true);
-                    JOptionPane.showMessageDialog(WelcomeScreen.this, msg, "Connection Error", JOptionPane.ERROR_MESSAGE);
+                    JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(WelcomeScreen.this);
+                    UITheme.toast(frame, msg, UITheme.ToastType.ERROR);
                 }
             }
         }.execute();

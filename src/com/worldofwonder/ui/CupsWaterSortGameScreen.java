@@ -92,6 +92,23 @@ public class CupsWaterSortGameScreen extends JPanel {
     private boolean pouring;
     private PourAnim pourAnim;
 
+    private static class Move {
+        final Tube from;
+        final Tube to;
+        final int count;
+        Move(Tube from, Tube to, int count) {
+            this.from = from;
+            this.to = to;
+            this.count = count;
+        }
+    }
+    private final java.util.Stack<Move> undoStack = new java.util.Stack<>();
+    
+    private JButton undoButton;
+    private JButton addTubeButton;
+    private JButton colorBlindButton;
+    private boolean colorBlindMode = false;
+
     public CupsWaterSortGameScreen(Dashboard dashboard) {
         super(new BorderLayout());
         this.dashboard = dashboard;
@@ -101,8 +118,8 @@ public class CupsWaterSortGameScreen extends JPanel {
         this.colorCount = 4;
 
         this.board = new GameBoard();
-        this.difficultyLabel = UITheme.badge("", UITheme.TEAL);
-        this.movesLabel = UITheme.badge("Moves: 0", UITheme.GOLD);
+        this.difficultyLabel = UITheme.badge("", UITheme.CUPS_ACCENT[0]);
+        this.movesLabel = UITheme.badge("Moves: 0", UITheme.WARNING);
         this.completeText = new JLabel("", SwingConstants.CENTER);
         completeText.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, UITheme.FONT_CARD_TITLE));
         completeText.setForeground(UITheme.TEXT_MUTED);
@@ -146,9 +163,9 @@ public class CupsWaterSortGameScreen extends JPanel {
         JPanel buttons = new JPanel(new GridLayout(3, 1, 0, 20));
         buttons.setOpaque(false);
         buttons.setBorder(BorderFactory.createEmptyBorder(28, 34, 0, 34));
-        buttons.add(difficultyTile("Easy", "4 colors \u2022 2 empty cups", UITheme.GREEN, 4));
-        buttons.add(difficultyTile("Medium", "6 colors \u2022 2 empty cups", UITheme.GOLD, 6));
-        buttons.add(difficultyTile("Hard", "8 colors \u2022 2 empty cups", UITheme.CORAL, 8));
+        buttons.add(difficultyTile("Easy", "4 colors \u2022 2 empty cups", UITheme.SUCCESS, 4));
+        buttons.add(difficultyTile("Medium", "6 colors \u2022 2 empty cups", UITheme.WARNING, 6));
+        buttons.add(difficultyTile("Hard", "8 colors \u2022 2 empty cups", UITheme.DANGER, 8));
 
         JPanel wrap = UIUtil.centered(buttons);
         wrap.setOpaque(false);
@@ -184,24 +201,51 @@ public class CupsWaterSortGameScreen extends JPanel {
         boardCenter.add(board, gbc);
         panel.add(boardCenter, BorderLayout.CENTER);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        JPanel actions = new JPanel();
+        actions.setLayout(new BoxLayout(actions, BoxLayout.Y_AXIS));
         actions.setOpaque(false);
         actions.setBorder(BorderFactory.createEmptyBorder(6, 0, 6, 0));
 
+        JPanel actionsTop = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        actionsTop.setOpaque(false);
+        
+        undoButton = UITheme.ghostButton("Undo", UITheme.GOLD);
+        UIUtil.fixedSize(undoButton, 120, 40);
+        undoButton.addActionListener(e -> undoMove());
+        undoButton.setEnabled(false);
+        actionsTop.add(undoButton);
+        
+        addTubeButton = UITheme.ghostButton("+ Tube", UITheme.TEAL);
+        UIUtil.fixedSize(addTubeButton, 120, 40);
+        addTubeButton.addActionListener(e -> addExtraTube());
+        actionsTop.add(addTubeButton);
+        
+        colorBlindButton = UITheme.ghostButton("Symbols", UITheme.VIOLET);
+        UIUtil.fixedSize(colorBlindButton, 120, 40);
+        colorBlindButton.addActionListener(e -> toggleColorBlind());
+        actionsTop.add(colorBlindButton);
+
+        JPanel actionsBottom = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        actionsBottom.setOpaque(false);
+
         JButton restart = UITheme.ghostButton("Restart", UITheme.TEXT_MUTED);
-        UIUtil.fixedSize(restart, 200, 50);
+        UIUtil.fixedSize(restart, 160, 50);
         restart.addActionListener(e -> restartCurrentGame());
-        actions.add(restart);
+        actionsBottom.add(restart);
 
         JButton change = UITheme.ghostButton("Change Difficulty", UITheme.TEXT_MUTED);
-        UIUtil.fixedSize(change, 200, 50);
+        UIUtil.fixedSize(change, 180, 50);
         change.addActionListener(e -> showDifficulty());
-        actions.add(change);
+        actionsBottom.add(change);
 
         JButton newGame = UITheme.primaryButton("New Game");
-        UIUtil.fixedSize(newGame, 200, 50);
+        UIUtil.fixedSize(newGame, 160, 50);
         newGame.addActionListener(e -> newGame());
-        actions.add(newGame);
+        actionsBottom.add(newGame);
+
+        actions.add(actionsTop);
+        actions.add(Box.createVerticalStrut(10));
+        actions.add(actionsBottom);
 
         panel.add(actions, BorderLayout.SOUTH);
         return panel;
@@ -223,7 +267,7 @@ public class CupsWaterSortGameScreen extends JPanel {
         panel.setOpaque(false);
 
         UITheme.GradientTextLabel title =
-                new UITheme.GradientTextLabel("Cups Solved!", 34, UITheme.GOLD, UITheme.TEAL);
+                new UITheme.GradientTextLabel("Cups Solved!", 34, UITheme.WARNING, UITheme.CUPS_ACCENT[0]);
         panel.add(title, BorderLayout.NORTH);
         panel.add(completeText, BorderLayout.CENTER);
 
@@ -282,6 +326,9 @@ public class CupsWaterSortGameScreen extends JPanel {
         }
         board.cancelShake();
         updateMoveLabel();
+        undoStack.clear();
+        if (undoButton != null) undoButton.setEnabled(false);
+        if (addTubeButton != null) addTubeButton.setEnabled(true);
 
         tubes.clear();
         for (List<Color> initList : initialTubes) {
@@ -304,6 +351,9 @@ public class CupsWaterSortGameScreen extends JPanel {
         }
         board.cancelShake();
         updateMoveLabel();
+        undoStack.clear();
+        if (undoButton != null) undoButton.setEnabled(false);
+        if (addTubeButton != null) addTubeButton.setEnabled(true);
 
         tubes.clear();
         while (true) {
@@ -364,6 +414,44 @@ public class CupsWaterSortGameScreen extends JPanel {
 
     private void updateMoveLabel() {
         movesLabel.setText("Moves: " + moves);
+    }
+
+    private void undoMove() {
+        if (undoStack.isEmpty() || won || pouring) return;
+        Move m = undoStack.pop();
+        for (int i = 0; i < m.count; i++) {
+            m.from.segments.add(m.to.segments.remove(m.to.segments.size() - 1));
+        }
+        moves--;
+        updateMoveLabel();
+        if (undoStack.isEmpty()) undoButton.setEnabled(false);
+        SoundUtil.playClick();
+        board.repaint();
+    }
+
+    private void addExtraTube() {
+        if (won || pouring || !addTubeButton.isEnabled()) return;
+        tubes.add(new Tube(capacity));
+        addTubeButton.setEnabled(false);
+        SoundUtil.playClick();
+        board.revalidate();
+        board.repaint();
+    }
+
+    private void toggleColorBlind() {
+        colorBlindMode = !colorBlindMode;
+        colorBlindButton.setText(colorBlindMode ? "Colors" : "Symbols");
+        SoundUtil.playClick();
+        board.repaint();
+    }
+
+    private static String getSymbolForColor(Color c) {
+        for (int i = 0; i < WATER_COLORS.length; i++) {
+            if (WATER_COLORS[i].getRGB() == c.getRGB()) {
+                return String.valueOf((char)('1' + i));
+            }
+        }
+        return "?";
     }
 
     private void onTubeClick(Tube clicked) {
@@ -444,6 +532,8 @@ public class CupsWaterSortGameScreen extends JPanel {
                 for (int i = 0; i < count; i++) {
                     to.segments.add(from.segments.remove(from.segments.size() - 1));
                 }
+                undoStack.push(new Move(from, to, count));
+                undoButton.setEnabled(true);
                 moves++;
                 updateMoveLabel();
                 if (isSolved()) {
@@ -451,7 +541,7 @@ public class CupsWaterSortGameScreen extends JPanel {
                     SoundUtil.playVictory();
                     int earnedPoints = Math.max(1, colorCount * 10 - moves);
                     completeText.setText("You sorted all the colors in " + moves + " moves! +" + earnedPoints + " points");
-                    completeText.setForeground(UITheme.GOLD);
+                    completeText.setForeground(UITheme.WARNING);
                     SwingUtilities.invokeLater(() -> {
                         cards.show(content, VIEW_COMPLETE);
                         confetti.launch();
@@ -737,6 +827,16 @@ public class CupsWaterSortGameScreen extends JPanel {
                         Math.max(4, (SEG_H - 3) / 3), 6, 6);
                 g2.setColor(new Color(0, 0, 0, 26));
                 g2.fillRoundRect(r.x + WALL, y + SEG_H - 6, r.width - 2 * WALL, 4, 4, 4);
+
+                if (colorBlindMode) {
+                    g2.setColor(new Color(255, 255, 255, 180));
+                    g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
+                    String sym = getSymbolForColor(color);
+                    java.awt.FontMetrics sfm = g2.getFontMetrics();
+                    int sx = r.x + WALL + (r.width - 2 * WALL - sfm.stringWidth(sym)) / 2;
+                    int sy = y + 2 + (SEG_H - 3 + sfm.getAscent() - sfm.getDescent()) / 2;
+                    g2.drawString(sym, sx, sy);
+                }
             }
 
             g2.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
@@ -759,14 +859,14 @@ public class CupsWaterSortGameScreen extends JPanel {
                 g2.setColor(new Color(32, 211, 194, 60));
                 g2.setStroke(new java.awt.BasicStroke(8f));
                 g2.draw(new RoundRectangle2D.Float(r.x - 6, r.y - 6, r.width + 12, tubeH + 12, 22, 22));
-                g2.setColor(UITheme.TEAL);
+                g2.setColor(UITheme.CUPS_ACCENT[0]);
                 g2.setStroke(new java.awt.BasicStroke(4.5f));
                 g2.draw(new RoundRectangle2D.Float(r.x - 3, r.y - 3, r.width + 6, tubeH + 6, 20, 20));
             } else if (shaking) {
                 g2.setColor(new Color(255, 93, 93, 90));
                 g2.setStroke(new java.awt.BasicStroke(5f));
                 g2.draw(new RoundRectangle2D.Float(r.x - 4, r.y - 4, r.width + 8, tubeH + 8, 20, 20));
-                g2.setColor(UITheme.ERROR);
+                g2.setColor(UITheme.DANGER);
                 g2.setStroke(new java.awt.BasicStroke(2f));
                 g2.draw(new RoundRectangle2D.Float(r.x - 2, r.y - 2, r.width + 4, tubeH + 4, 19, 19));
             } else if (isHovered) {

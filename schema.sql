@@ -397,3 +397,100 @@ INSERT INTO wow_levels (id, world_id, name, difficulty, theme, words, point_rewa
     (16, 6, 'Canopy Walk', 'easy', 'Rainforest Adventure', '["VINE","LEAF","FROG","NEST"]', 80),
     (17, 6, 'Jungle Trek', 'medium', 'Rainforest Adventure', '["VINE","LEAF","FROG","NEST","CANOPY","ORCHID"]', 150),
     (18, 6, 'Wild Expedition', 'hard', 'Rainforest Adventure', '["VINE","LEAF","FROG","NEST","CANOPY","ORCHID","MACAW","TROPIC"]', 250);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- NEW TABLES: Game Sessions, Achievements, Daily Challenges, Streaks
+-- ═══════════════════════════════════════════════════════════════════════
+
+DROP TABLE IF EXISTS daily_completions CASCADE;
+DROP TABLE IF EXISTS user_streaks CASCADE;
+DROP TABLE IF EXISTS daily_challenges CASCADE;
+DROP TABLE IF EXISTS user_achievements CASCADE;
+DROP TABLE IF EXISTS achievements CASCADE;
+DROP TABLE IF EXISTS game_sessions CASCADE;
+
+CREATE TABLE IF NOT EXISTS game_sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    game_type VARCHAR(30) NOT NULL,
+    points_earned INT NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    duration_seconds INT DEFAULT 0,
+    star_rating INT NOT NULL DEFAULT 0,
+    played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS achievements (
+    id SERIAL PRIMARY KEY,
+    key VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    icon VARCHAR(10) NOT NULL,
+    condition_type VARCHAR(50) NOT NULL,
+    condition_value INT NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS user_achievements (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    achievement_id INT NOT NULL,
+    earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, achievement_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS daily_challenges (
+    id SERIAL PRIMARY KEY,
+    challenge_date DATE NOT NULL UNIQUE,
+    game_type VARCHAR(30) NOT NULL,
+    config_json TEXT NOT NULL,
+    bonus_multiplier INT NOT NULL DEFAULT 2
+);
+
+CREATE TABLE IF NOT EXISTS user_streaks (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    current_streak INT NOT NULL DEFAULT 0,
+    longest_streak INT NOT NULL DEFAULT 0,
+    last_play_date DATE,
+    streak_freezes INT NOT NULL DEFAULT 0,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS daily_completions (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    challenge_date DATE NOT NULL,
+    points_earned INT NOT NULL DEFAULT 0,
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, challenge_date),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- SEED: 20 Achievements
+-- ═══════════════════════════════════════════════════════════════════════
+
+INSERT INTO achievements (key, name, description, icon, condition_type, condition_value) VALUES
+    ('first_steps',    'First Steps',    'Complete your first game',                          '🌟', 'total_completed', 1),
+    ('on_fire',        'On Fire',        'Maintain a 7-day play streak',                      '🔥', 'streak',          7),
+    ('champion',       'Champion',       'Reach 1000 total points',                           '🏆', 'total_points',    1000),
+    ('quiz_master',    'Quiz Master',    'Complete 100 quiz games',                            '🧠', 'quiz_correct',    100),
+    ('word_hunter',    'Word Hunter',    'Complete 50 word search puzzles',                    '🔍', 'wordsearch_words', 50),
+    ('word_wizard',    'Word Wizard',    'Complete 10 Words of Wonders puzzles',               '💎', 'wow_completed',   10),
+    ('alchemist',      'Alchemist',      'Complete 10 Water Sort levels',                      '🧪', 'cups_completed',  10),
+    ('speed_demon',    'Speed Demon',    'Complete 20 games total',                            '⚡', 'total_completed', 20),
+    ('dedicated',      'Dedicated',      'Maintain a 30-day play streak',                     '📅', 'streak',          30),
+    ('world_traveler', 'World Traveler', 'Complete 50 games total — you have traveled far!',  '🌍', 'total_completed', 50),
+    ('perfect_score',  'Perfect Score',  'Earn 10 three-star ratings',                         '🎯', 'total_stars',     30),
+    ('century',        'Century',        'Maintain a 100-day play streak',                     '💯', 'longest_streak',  100),
+    ('deep_diver',     'Deep Diver',     'Complete 100 games total',                           '🐋', 'total_completed', 100),
+    ('top_player',     'Top Player',     'Reach 5000 total points',                            '🏅', 'total_points',    5000),
+    ('all_rounder',    'All-Rounder',    'Play all 4 game modes at least once',                '🎮', 'all_modes',       1),
+    ('star_collector', 'Star Collector', 'Earn 60 total stars across all games',               '⭐', 'total_stars',     60),
+    ('puzzle_king',    'Puzzle King',    'Complete 200 total puzzles',                          '🧩', 'total_completed', 200),
+    ('getting_started','Getting Started','Play 10 games total',                                '🕐', 'total_played',    10),
+    ('point_master',   'Point Master',   'Reach 10000 total points',                           '🤝', 'total_points',    10000),
+    ('legend',         'Legend',         'Earn 19 other achievements — you are a true legend!', '👑', 'achievement_count', 19);

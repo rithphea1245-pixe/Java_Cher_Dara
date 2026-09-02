@@ -3,9 +3,12 @@ package com.worldofwonder.server;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import com.worldofwonder.controller.AchievementController;
 import com.worldofwonder.controller.AdminController;
 import com.worldofwonder.controller.AuthController;
+import com.worldofwonder.controller.DailyController;
 import com.worldofwonder.controller.GameController;
+import com.worldofwonder.controller.StatsController;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -40,6 +43,19 @@ public class HttpServerApp {
             server.createContext("/api/answers", cors(gameController));
             server.createContext("/api/leaderboard", cors(gameController));
             server.createContext("/api/puzzles", cors(gameController));
+
+            // Stats & session tracking
+            StatsController statsController = new StatsController();
+            server.createContext("/api/stats", cors(statsController));
+            server.createContext("/api/sessions", cors(statsController));
+
+            // Achievements
+            server.createContext("/api/achievements", cors(new AchievementController()));
+
+            // Daily challenges & streaks
+            DailyController dailyController = new DailyController();
+            server.createContext("/api/daily", cors(dailyController));
+            server.createContext("/api/streak", cors(dailyController));
 
             // Use a thread pool executor to handle requests concurrently without blocking connections
             server.setExecutor(Executors.newFixedThreadPool(10));

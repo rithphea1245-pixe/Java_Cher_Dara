@@ -64,13 +64,26 @@ public class WordsOfWondersGameScreen extends JPanel {
             {"FROZEN", "FROZE", "ZONE", "ZERO", "FORE", "FERN", "FOE", "ONE", "ORE"},
     };
 
+    private static final String[][] BONUS_WORDS = {
+            {"ART", "EAR", "EAT", "ERA", "HAT", "HER", "RAT", "TAR", "TEA", "THE"},
+            {"AGE", "AND", "ARE", "DEN", "EAR", "END", "ERA", "RAG", "RAN", "RED"},
+            {"ITS", "LET", "LIE", "LIT", "NET", "NIT", "SET", "SIN", "SIT", "TEN", "TIE", "TIN"},
+            {"ACT", "ALE", "ALT", "ATE", "CAT", "EAT", "LET", "SAT", "SEA", "SET", "TEA"},
+            {"ANT", "APE", "APT", "EAT", "LAP", "NAP", "PAL", "PAN", "PAT", "PEA", "PEN", "PET", "TAP", "TEN"},
+            {"ART", "RUG", "TUG", "RIG", "TAR", "RAT"},
+            {"DOW", "END", "NEW", "NOD", "NOW", "ONE", "ORE", "OWE", "OWN", "RED", "ROE", "ROW", "WED", "WON"},
+            {"FOR", "NOR", "REF", "FEZ"}
+    };
+
     private final Dashboard dashboard;
     private final QuizApiClient api;
     private final Random rnd = new Random();
 
     private String[] data;
     private List<String> targetWords;
+    private List<String> bonusList;
     private final Set<String> foundWords = new HashSet<>();
+    private final Set<String> foundBonus = new HashSet<>();
     private final Map<Integer, Set<Integer>> hintedMap = new HashMap<>();
     private List<Character> circleLetters;
     private final List<Integer> selection = new ArrayList<>();
@@ -83,7 +96,7 @@ public class WordsOfWondersGameScreen extends JPanel {
     private LetterCircle lCircle;
     private JLabel statusLbl, ptsLbl, feedLbl, curWordLbl;
     private UITheme.ProgressBar pBar;
-    private JButton hintBtn, hammerBtn;
+    private JButton hintBtn, hammerBtn, bonusBtn;
     private JPanel donePanel;
     private JLabel doneText;
     private UITheme.Confetti confetti;
@@ -136,9 +149,9 @@ public class WordsOfWondersGameScreen extends JPanel {
         buttons.setOpaque(false);
         buttons.setBorder(BorderFactory.createEmptyBorder(28, 34, 0, 34));
 
-        buttons.add(diffTile("Easy", "5 letters \u2022 9 words to find", UITheme.GREEN, 0));
-        buttons.add(diffTile("Medium", "6 letters \u2022 9 words to find", UITheme.GOLD, 1));
-        buttons.add(diffTile("Hard", "6 letters \u2022 9 words to find", UITheme.CORAL, 5));
+        buttons.add(diffTile("Easy", "5 letters \u2022 9 words to find", UITheme.SUCCESS, 0));
+        buttons.add(diffTile("Medium", "6 letters \u2022 9 words to find", UITheme.WARNING, 1));
+        buttons.add(diffTile("Hard", "6 letters \u2022 9 words to find", UITheme.DANGER, 5));
 
         JPanel wrap = UIUtil.centered(buttons);
         wrap.setOpaque(false);
@@ -165,8 +178,8 @@ public class WordsOfWondersGameScreen extends JPanel {
 
         JPanel metaRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 4));
         metaRow.setOpaque(false);
-        statusLbl = UITheme.badge("0 / 9 words", UITheme.TEAL);
-        ptsLbl = UITheme.badge("Points: 0", UITheme.GOLD);
+        statusLbl = UITheme.badge("0 / 9 words", UITheme.WORDS_ACCENT[0]);
+        ptsLbl = UITheme.badge("Points: 0", UITheme.WARNING);
         metaRow.add(statusLbl);
         metaRow.add(ptsLbl);
         metaRow.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -182,7 +195,7 @@ public class WordsOfWondersGameScreen extends JPanel {
 
         curWordLbl = new JLabel(" ", SwingConstants.CENTER);
         curWordLbl.setFont(UITheme.displayFont(Font.BOLD, 22));
-        curWordLbl.setForeground(UITheme.TEAL);
+        curWordLbl.setForeground(UITheme.WORDS_ACCENT[0]);
         curWordLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         JPanel wordWrap = UIUtil.centered(curWordLbl);
         wordWrap.setOpaque(false);
@@ -226,17 +239,17 @@ public class WordsOfWondersGameScreen extends JPanel {
         JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
         btnRow.setOpaque(false);
 
-        hintBtn = UITheme.accentButton("\uD83D\uDCA1 Hint (-" + HINT_COST + ")", UITheme.GOLD);
+        hintBtn = UITheme.accentButton("\uD83D\uDCA1 Hint (-" + HINT_COST + ")", UITheme.WARNING);
         UIUtil.fixedSize(hintBtn, 180, UITheme.BTN_H_SM);
         hintBtn.addActionListener(e -> useHint());
         btnRow.add(hintBtn);
 
-        hammerBtn = UITheme.accentButton("\uD83D\uDD28 Reveal (-" + HAMMER_COST + ")", UITheme.CORAL);
+        hammerBtn = UITheme.accentButton("\uD83D\uDD28 Reveal (-" + HAMMER_COST + ")", UITheme.DANGER);
         UIUtil.fixedSize(hammerBtn, 200, UITheme.BTN_H_SM);
         hammerBtn.addActionListener(e -> useHammer());
         btnRow.add(hammerBtn);
 
-        JButton shuffleBtn = UITheme.ghostButton("Shuffle", UITheme.ICE);
+        JButton shuffleBtn = UITheme.ghostButton("Shuffle", UITheme.BRAND_400);
         UIUtil.fixedSize(shuffleBtn, 140, UITheme.BTN_H_SM);
         shuffleBtn.addActionListener(e -> shuffleLetters());
         btnRow.add(shuffleBtn);
@@ -245,6 +258,12 @@ public class WordsOfWondersGameScreen extends JPanel {
         UIUtil.fixedSize(clearBtn, 120, UITheme.BTN_H_SM);
         clearBtn.addActionListener(e -> clearSelection());
         btnRow.add(clearBtn);
+        
+        bonusBtn = UITheme.ghostButton("\uD83C\uDF81 0", UITheme.WARNING);
+        bonusBtn.setToolTipText("Bonus words found");
+        UIUtil.fixedSize(bonusBtn, 80, UITheme.BTN_H_SM);
+        bonusBtn.setEnabled(false);
+        btnRow.add(bonusBtn);
 
         JButton newBtn = UITheme.secondaryButton("New Game");
         UIUtil.fixedSize(newBtn, 140, UITheme.BTN_H_SM);
@@ -277,7 +296,7 @@ public class WordsOfWondersGameScreen extends JPanel {
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
 
         UITheme.GradientTextLabel title =
-                new UITheme.GradientTextLabel("Puzzle Complete!", 36, UITheme.GOLD, UITheme.TEAL);
+                new UITheme.GradientTextLabel("Puzzle Complete!", 36, UITheme.WARNING, UITheme.WORDS_ACCENT[0]);
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
         center.add(title);
         center.add(Box.createVerticalStrut(8));
@@ -288,7 +307,7 @@ public class WordsOfWondersGameScreen extends JPanel {
 
         doneText = new JLabel(" ", SwingConstants.CENTER);
         doneText.setFont(UITheme.bodyFont(Font.BOLD, UITheme.FONT_CARD_TITLE));
-        doneText.setForeground(UITheme.GOLD);
+        doneText.setForeground(UITheme.WARNING);
         doneText.setAlignmentX(Component.CENTER_ALIGNMENT);
         doneText.setBorder(BorderFactory.createEmptyBorder(16, 0, 0, 0));
         center.add(doneText);
@@ -316,11 +335,14 @@ public class WordsOfWondersGameScreen extends JPanel {
 
     private void startGame(int puzzleIdx) {
         data = PUZZLES[puzzleIdx];
+        bonusList = new ArrayList<>();
+        Collections.addAll(bonusList, BONUS_WORDS[puzzleIdx]);
         targetWords = new ArrayList<>();
         for (int i = 0; i < data.length; i++) {
             targetWords.add(data[i]);
         }
         foundWords.clear();
+        foundBonus.clear();
         hintedMap.clear();
         selection.clear();
         points = 0;
@@ -395,6 +417,10 @@ public class WordsOfWondersGameScreen extends JPanel {
                 return;
             }
         }
+        if (bonusList.contains(word) && !foundBonus.contains(word)) {
+            onBonusFound(word);
+            return;
+        }
         lCircle.repaint();
     }
 
@@ -412,10 +438,15 @@ public class WordsOfWondersGameScreen extends JPanel {
 
         if (foundWords.contains(word)) {
             SoundUtil.playError();
-            showFeed("Already found: " + word, UITheme.GOLD);
+            showFeed("Already found: " + word, UITheme.WARNING);
+        } else if (foundBonus.contains(word)) {
+            SoundUtil.playError();
+            showFeed("Bonus already found: " + word, UITheme.WARNING);
+        } else if (bonusList.contains(word)) {
+            onBonusFound(word);
         } else if (word.length() >= 2) {
             SoundUtil.playError();
-            showFeed("Not in puzzle: " + word, UITheme.ERROR);
+            showFeed("Not in puzzle: " + word, UITheme.DANGER);
         }
         clearSelection();
     }
@@ -436,7 +467,7 @@ public class WordsOfWondersGameScreen extends JPanel {
         clearSelection();
         updateMeta();
         xGrid.repaint();
-        showFeed("Found: " + word + "!  +" + PTS_WORD + " pts", UITheme.GREEN);
+        showFeed("Found: " + word + "!  +" + PTS_WORD + " pts", UITheme.SUCCESS);
 
         if (foundWords.size() >= targetWords.size()) {
             gameActive = false;
@@ -447,10 +478,19 @@ public class WordsOfWondersGameScreen extends JPanel {
         }
     }
 
+    private void onBonusFound(String word) {
+        foundBonus.add(word);
+        points += PTS_WORD / 2; // Bonus words give half points
+        SoundUtil.playCorrect();
+        clearSelection();
+        updateMeta();
+        showFeed("Bonus! " + word + "  +" + (PTS_WORD / 2) + " pts", UITheme.WARNING);
+    }
+
     private void useHint() {
         if (!gameActive || points < HINT_COST) {
             SoundUtil.playError();
-            showFeed("Not enough points!", UITheme.ERROR);
+            showFeed("Not enough points!", UITheme.DANGER);
             return;
         }
         List<String> unfound = new ArrayList<>();
@@ -474,13 +514,13 @@ public class WordsOfWondersGameScreen extends JPanel {
         SoundUtil.playHint();
         updateMeta();
         xGrid.repaint();
-        showFeed("Letter revealed in #" + (wIdx + 1) + "!  -" + HINT_COST + " pts", UITheme.GOLD);
+        showFeed("Letter revealed in #" + (wIdx + 1) + "!  -" + HINT_COST + " pts", UITheme.WARNING);
     }
 
     private void useHammer() {
         if (!gameActive || points < HAMMER_COST) {
             SoundUtil.playError();
-            showFeed("Not enough points!", UITheme.ERROR);
+            showFeed("Not enough points!", UITheme.DANGER);
             return;
         }
         List<String> unfound = new ArrayList<>();
@@ -495,7 +535,7 @@ public class WordsOfWondersGameScreen extends JPanel {
         SoundUtil.playHint();
         updateMeta();
         xGrid.repaint();
-        showFeed("Revealed: " + pick + "!  net " + (PTS_WORD - HAMMER_COST) + " pts", UITheme.CORAL);
+        showFeed("Revealed: " + pick + "!  net " + (PTS_WORD - HAMMER_COST) + " pts", UITheme.DANGER);
 
         if (foundWords.size() >= targetWords.size()) {
             gameActive = false;
@@ -512,6 +552,9 @@ public class WordsOfWondersGameScreen extends JPanel {
         pBar.setProgress((double) foundWords.size() / Math.max(1, targetWords.size()));
         hintBtn.setEnabled(gameActive && points >= HINT_COST);
         hammerBtn.setEnabled(gameActive && points >= HAMMER_COST);
+        if (bonusBtn != null) {
+            bonusBtn.setText("\uD83C\uDF81 " + foundBonus.size());
+        }
     }
 
     private void showFeed(String text, Color color) {
@@ -640,7 +683,7 @@ public class WordsOfWondersGameScreen extends JPanel {
                 int y = startY + i * (CELL + CG);
 
                 g2.setFont(numFont);
-                g2.setColor(isFound ? UITheme.GREEN : UITheme.TEXT_MUTED);
+                g2.setColor(isFound ? UITheme.SUCCESS : UITheme.TEXT_MUTED);
                 String num = (i + 1) + ".";
                 g2.drawString(num, 4, y + (CELL - nfm.getHeight()) / 2 + nfm.getAscent());
 
@@ -848,7 +891,7 @@ public class WordsOfWondersGameScreen extends JPanel {
                 if (selected) {
                     g2.setColor(new Color(32, 211, 194, 60));
                     g2.fillOval(nx - nodeR - 4, ny - nodeR - 4, (nodeR + 4) * 2, (nodeR + 4) * 2);
-                    g2.setColor(UITheme.TEAL);
+                    g2.setColor(UITheme.WORDS_ACCENT[0]);
                 } else {
                     g2.setPaint(new LinearGradientPaint(nx, ny - nodeR, nx, ny + nodeR,
                             new float[]{0f, 1f},
